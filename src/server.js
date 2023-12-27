@@ -5,10 +5,10 @@ const bodyParser = require("body-parser");
 const app = express();
 app.use(bodyParser.json());
 dotenv.config();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3030;
 app.use(express.json());
-
-app.use("/auth", authroutes);
+app.use("/api/auth", authroutes);
+app.use("/api/token", authroutes);
 app.listen(PORT, () => {
-  console.log("server is runing on port no " + PORT);
+  console.log("server is running on port no " + PORT);
 });

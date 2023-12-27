@@ -4,7 +4,6 @@ const dbconnect = db();
 //function for insert new user data to database
 
 const createUser = async (username, password, email) => {
-  console.log("createuser");
   const q =
     "INSERT INTO login_info(username, password, email) VALUES (?, ?, ?)";
   try {
@@ -18,7 +17,6 @@ const createUser = async (username, password, email) => {
         }
       });
     });
-    console.log(result);
     return result.insertId;
   } catch (err) {
     console.log(err);
@@ -29,7 +27,6 @@ const createUser = async (username, password, email) => {
 const findUser = async (email, password) => {
   const query = "SELECT * FROM login_info WHERE email=? LIMIT 1";
   try {
-    console.log(query);
     const user = await new Promise((resolve, reject) => {
       dbconnect.query(query, [email], (err, result) => {
         if (err) {

@@ -22,7 +22,7 @@ const signup = async (req, res) => {
           console.error("Error in password hashing:", err);
           reject(err);
         } else {
-          console.log(hashed);
+          // console.log(hashed);
           resolve(hashed);
         }
       });
@@ -31,13 +31,20 @@ const signup = async (req, res) => {
     // Create a new user using the UserModel
 
     const userID = await UserModel.createUser(username, hashedPassword, email);
-    const token = jwt.sign({ userID: userID }, jwt_secret, { expiresIn: "1h" });
-    console.log(userID);
-    const refreshToken=jwt.sign({username:})
+    const accesstoken = jwt.sign({ userID: userID }, jwt_secret, {
+      expiresIn: "1h",
+    });
+    const refreshToken = jwt.sign({ userId: userID }, jwt_secret, {
+      expiresIn: "1d",
+    });
+
+    // console.log(userID);
+    // const refreshToken=jwt.sign({username:})
     // Send a success response
     res.status(201).json({
       userId: userID,
-      token: token,
+      accesstoken: accesstoken,
+      refreshToken: refreshToken,
       message: "User created successfully",
     });
   } catch (error) {
@@ -64,12 +71,18 @@ const login = async (req, res) => {
     }
     const MatchPassword = await bcrypt.compare(password, user.password);
     if (MatchPassword) {
-      const token = jwt.sign({ userId: user.user_id }, jwt_secret, {
+      const accesstoken = jwt.sign({ userId: user.user_id }, jwt_secret, {
         expiresIn: "1h",
       });
-      res
-        .status(200)
-        .json({ message: `welcome ${user.username}`, token: token });
+      const refreshToken = jwt.sign({ userId: user.user_id }, jwt_secret, {
+        expiresIn: "1d",
+      });
+
+      res.status(200).json({
+        message: `welcome ${user.username}`,
+        accesstoken: accesstoken,
+        refreshToken: refreshToken,
+      });
     } else {
       return res.status(401).json({ errMessage: "Invalide Password" });
     }
@@ -80,8 +93,23 @@ const login = async (req, res) => {
 };
 
 //refresh jwt token
-
+const refreshToken = (req, res) => {
+  const { refreshtoken } = req.body;
+  if (!refreshtoken) {
+    return res.status(401).json({ errmessage: "Refreshtoken is missing!!" });
+  }
+  jwt.verify(refreshtoken, jwt_secret, (error, decoded) => {
+    if (error) {
+      res.status(403).json({ errmessage: "Invalid Refresh Token" });
+    }
+    const accesstoken = jwt.sign({ userID: decoded.userID }, jwt_secret, {
+      expiresIn: "1h",
+    });
+    res.json({ accesstoken: accesstoken });
+  });
+};
 module.exports = {
   signup,
   login,
+  refreshToken,
 };
