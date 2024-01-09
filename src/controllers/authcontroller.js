@@ -11,10 +11,10 @@ const saltRounds = parseInt(process.env.SALTROUND);
 const signup = async (req, res) => {
   const { username, password, confirmPassword, email } = req.body;
   try {
+    console.log(password, confirmPassword, username, email);
     if (password !== confirmPassword) {
-      return res.status(400).json({ error: "Passwords do not match" });
+      return res.status(422).json({ errMessage: "Passwords do not match" });
     }
-    //
     // Hash the password using bcrypt
     const hashedPassword = await new Promise((resolve, reject) => {
       bcrypt.hash(password, saltRounds, (err, hashed) => {
@@ -22,7 +22,6 @@ const signup = async (req, res) => {
           console.error("Error in password hashing:", err);
           reject(err);
         } else {
-          // console.log(hashed);
           resolve(hashed);
         }
       });
@@ -38,9 +37,6 @@ const signup = async (req, res) => {
       expiresIn: "1d",
     });
 
-    // console.log(userID);
-    // const refreshToken=jwt.sign({username:})
-    // Send a success response
     res.status(201).json({
       userId: userID,
       accesstoken: accesstoken,
@@ -51,12 +47,12 @@ const signup = async (req, res) => {
     console.error("Error in signup controller:", error);
     if (error.code == "ER_DUP_ENTRY") {
       return res
-        .status(500)
-        .json({ error: "UserName or email is not available" });
+        .status(409)
+        .json({ errMessage: "Email is allready registred Please Login" });
     }
     res
       .status(500)
-      .json({ error: "Internal Server Error", errorcode: error.code });
+      .json({ errMessage: "Internal Server Error", errorcode: error.code });
   }
 };
 
@@ -65,9 +61,9 @@ const signup = async (req, res) => {
 const login = async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = await UserModel.findUser(email, password);
+    const user = await UserModel.findUser(email);
     if (!user) {
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.status(401).json({ errMessage: "Invalid Email and Password" });
     }
     const MatchPassword = await bcrypt.compare(password, user.password);
     if (MatchPassword) {
@@ -108,8 +104,70 @@ const refreshToken = (req, res) => {
     res.json({ accesstoken: accesstoken });
   });
 };
+
+//endpoint for get user data
+
+const userData = async (req, res) => {
+  try {
+    const token =
+      req.headers.authorization && req.headers.authorization.split(" ")[0];
+    if (!token) {
+      return res.status(401).json({ errMessage: "Token is missing" });
+    }
+    const decoded = jwt.verify(token, jwt_secret);
+    const userID = decoded.userID;
+    const data = await UserModel.getUserData(userID);
+    res.status(200).json({ data: data });
+  } catch (error) {
+    console.error("Error in userData:", error);
+    if (error.name === "JsonWebTokenError") {
+      res.status(403).json({ errMessage: "Invalid Token" });
+    } else {
+      res.status(500).json({ errMessage: "Internal Server Error" });
+    }
+  }
+};
+
+//end point for updatepassword
+
+const updatePassword = async (req, res) => {
+  const { email, password, confirmPassword } = req.body;
+  try {
+    if (password !== confirmPassword) {
+      return res
+        .status(422)
+        .json({ errMessage: "Passwords do not match with comfirm password" });
+    }
+    // Hash the password using bcrypt
+    const hashedPassword = await new Promise((resolve, reject) => {
+      bcrypt.hash(password, saltRounds, (err, hashed) => {
+        if (err) {
+          console.error("Error in password hashing:", err);
+          reject(err);
+        } else {
+          resolve(hashed);
+        }
+      });
+    });
+    const result = await UserModel.updatePassword(hashedPassword, email);
+    if (result.changedRows == 0) {
+      return res.status(404).json({ errMessage: "Email is not registred" });
+    } else {
+      res.status(201).json({
+        message: "Password Updated successfully",
+      });
+    }
+  } catch (error) {
+    console.error("Error in signup controller:", error);
+    res
+      .status(500)
+      .json({ errMessage: "Internal Server Error", errorcode: error.code });
+  }
+};
 module.exports = {
   signup,
   login,
   refreshToken,
+  userData,
+  updatePassword,
 };
